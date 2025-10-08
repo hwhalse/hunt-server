@@ -1,0 +1,14 @@
+syntax = "proto3";
+option go_package = "munc/demo";
+
+import "MuncRoom.proto";
+
+message PbMeeple {
+  message ClothingFlags {
+    bool hasHat = 1;
+    bool hasShoes = 2;
+  }
+  optional PbTransform transformData = 1;
+  optional bytes hexColor = 2;
+  optional ClothingFlags clothes = 3;
+}

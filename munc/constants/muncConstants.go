@@ -1,0 +1,39 @@
+package constants
+
+const (
+	GENERAL_ERROR               = 5
+	TCP_HEARTBEAT               = 512
+	TCP_INIT                    = 513
+	TCP_JOIN_ROOM               = 514
+	TCP_ROOM_JOIN_SUCCESS       = 515
+	TCP_ANNOUNCE_ROOM_JOIN      = 516
+	TCP_EXIT_ROOM               = 517
+	TCP_ANNOUNCE_ROOM_EXIT      = 518
+	TCP_CREATE_OBJECT           = 519
+	TCP_CREATE_OBJECT_BROADCAST = 520
+	TCP_UPDATE_OBJECT           = 521
+	TCP_UPDATE_OBJECT_BROADCAST = 522
+	TCP_OWN_OBJECT              = 522
+	TCP_DISOWN_OBJECT           = 523
+	TCP_DISOWN_OBJECT_BROADCAST = 524
+	TCP_DELETE_OBJECT           = 525
+	TCP_DELETE_OBJECT_BROADCAST = 526
+	TCP_SUCCESS                 = 1021
+	TCP_ERROR                   = 1022
+	TCP_ROOM_ERROR              = 1023
+)
+
+const (
+	GET_TARGETS     = 2
+	GET_LOCATIONS   = 3
+	GET_SQUAD       = 4
+	UPDATE_LOCATION = 5
+	UPDATE_TARGET   = 6
+	NEW_TARGET      = 8
+	NEW_SQUAD       = 9
+	UPDATE_SQUAD    = 10
+	LEAVE           = 11
+	UPDATE_PROFILE  = 12
+	DELETE_TARGET   = 14
+	Error           = 99
+)

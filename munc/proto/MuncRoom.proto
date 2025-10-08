@@ -1,0 +1,152 @@
+syntax = "proto3";
+option go_package = "munc/roomData";
+import "google/protobuf/any.proto";
+
+message ConnectionInitReq{
+  string userId = 1;
+  string sessionToken = 2;
+}
+
+message ConnectionInitResp{
+  string userId = 1;
+}
+
+message ObjectUpdateResp{
+  bool success = 1;
+}
+
+message ReleaseObjectsOwnership {
+  repeated string objectId = 1;
+}
+
+message RequestBoolResp {
+  map<string, bool> results = 1;
+}
+
+message RoomConnectReq{
+  string nickname = 1;
+  string roomName = 2;
+  string password = 3;
+}
+
+message RoomConnectResp{
+  string roomName = 1;
+  PbRoomState currentState = 2;
+}
+
+message RoomJoinReq{
+  int32 positionPort = 1;
+  int32 voipPort = 2;
+  Platform platform = 3;
+}
+
+message RoomJoinResp{
+  int32 positionServerPort = 1;
+  int32 voipServerPort = 2;
+}
+
+message PbRoomState {
+  repeated RoomStateEvt allObjects = 1;
+}
+
+message RoomStateEvt {
+  string objectId = 1;
+  string ownerId = 2;
+  repeated StateObj payload = 3;
+}
+
+message StateObj {
+  google.protobuf.Any payload = 1;
+}
+
+message PbMuncUser {
+  string userId = 1;
+  string name = 2;
+  optional Platform platform = 3;
+  optional PbTransform transformData = 4;
+}
+
+message PbMuncAvatar {
+  string userId = 1;
+  optional string name = 2;
+  optional Platform platform = 3;
+  optional PbTransform transformData = 4;
+}
+
+message PbTransform {
+  optional PbVect3 position = 1;
+  optional PbVect3 rotation = 2;
+  optional PbVect3 scale = 3;
+}
+
+message PbVect3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+enum Platform {
+  DESKTOP = 0;
+  HOLOLENS = 1;
+  TABLET = 2;
+  MAGIC_LEAP = 3;
+  QUEST = 4;
+}
+
+message UserJoinedRoomEvt {
+  string userId = 1;
+  string roomName = 2;
+  string nickname = 3;
+  bool reconnected = 4; //default false
+}
+
+message UserExitRoomEvt {
+  string userId = 1;
+  string roomName = 2;
+  string nickname = 3;
+  bool disconnected = 4; //default false
+}
+
+message ExitRoomReq {
+	string roomName = 1;
+	string nickname = 2;
+}
+
+message RoomExitResp {
+  string roomName = 2;
+}
+
+message ObjectDeleteReq {
+  string objectId = 1;
+}
+
+message PbEolianAvatar {
+  message HandsData {
+	message HandData {
+	  message JointData {
+	    optional PbVect3 position = 1;
+		bool active = 2;
+	  }
+	  bool show = 1;
+	  map<uint32, JointData> joints = 2;
+	}
+	
+	optional HandData left = 1;
+	optional HandData right = 2;
+  }
+  
+  message AvatarSettings {
+    bool showBody = 1;
+    bool mute = 2;
+    bool hasControl = 3;
+    bool hasMenuControl = 4;
+  }
+  
+  string userId = 1;
+  string name = 2;
+  optional Platform platform = 3;
+  optional PbTransform transformData = 4;
+  string version = 5;
+  optional AvatarSettings settings = 6;
+  optional HandsData hands = 7;
+}

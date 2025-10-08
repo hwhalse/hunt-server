@@ -1,0 +1,32 @@
+syntax = "proto3";
+option go_package = "munc/core";
+
+message PbNetworkResp {
+  uint32 muncEventId = 1;
+  bytes message = 2;
+}
+
+message PbNetworkReq {
+  uint32 muncEventId = 1;
+  string userId = 2;
+  string roomName = 3;
+  bytes message = 4;
+}
+
+//not in use
+message PbUdpInit {
+  optional double clientSendUtcTicks = 1;
+  optional double serverReceiveUtcTicks = 2;
+  optional double serverSendUtcTicks = 3;
+  optional double clientReceiveUtcTicks = 4;
+}
+
+//not in use
+message BatchedData {
+  repeated bytes data = 1;
+}
+
+message MuncFailure {
+  string message = 1;
+  uint32 errorId = 2;
+}

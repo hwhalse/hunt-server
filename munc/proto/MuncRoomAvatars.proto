@@ -1,0 +1,13 @@
+syntax = "proto3";
+option go_package = "munc/roomAvatars";
+import "google/protobuf/any.proto";
+
+message RoomAvatarEvt {
+    string ObjectId = 1;
+	string roomName = 2;
+	repeated PayloadObject payload = 3;
+}
+
+message PayloadObject {
+	google.protobuf.Any payload = 1;
+}

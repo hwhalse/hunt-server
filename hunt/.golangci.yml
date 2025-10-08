@@ -1,0 +1,37 @@
+name: Lint Hunt
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - bodyclose
+    - canonicalheader
+    - contextcheck
+    - cyclop
+    - decorder
+    - dogsled
+    - errorlint
+    - err113
+    - errname
+    - exhaustive
+    - ginkgolinter
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gofmt
+    - gosec
+    - ireturn
+    - musttag
+    - noctx
+    - nosprintfhostport
+    - usestdlibvars
+    - zerologlint
+run:
+  tests: true
+issues:
+  exclude-use-default: false

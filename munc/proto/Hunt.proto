@@ -1,0 +1,12 @@
+syntax = "proto3";
+option go_package = "munc/core";
+
+message Location {
+  double lat = 1;
+  double lon = 2;
+  double alt = 3;
+}
+
+message Locations {
+  repeated Location locations = 1;
+}
