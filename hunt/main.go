@@ -10,7 +10,7 @@ import (
 func main() {
 	port := "8080"
 	mux := http.NewServeMux()
-	upgrader := gws.NewUpgrader(huntSocket.NewHandler(), &gws.ServerOption{
+	upgrader := gws.NewUpgrader(&huntSocket.Handler{}, &gws.ServerOption{
 		ParallelEnabled:  true,                               
 		Recovery:          gws.Recovery,                    
 		PermessageDeflate: gws.PermessageDeflate{Enabled: true},

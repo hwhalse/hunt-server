@@ -21,10 +21,6 @@ const (
 // Change to true to use state object instead of writing to DB
 var useState = false
 
-func NewHandler() *Handler {
-	return &Handler{}
-}
-
 type Handler struct{}
 
 var huntState = state.NewStateObject()
