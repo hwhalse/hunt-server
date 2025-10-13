@@ -1,238 +1,155 @@
 package socket
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
-	"github.com/google/uuid"
 	"hunt/collections"
-	"hunt/constants"
-	"hunt/structs"
-	"hunt/utils"
-	"net"
-	"net/http"
-	"os"
+	"hunt/models"
+	"log"
+
+	"github.com/google/uuid"
+	"github.com/lxzan/gws"
 )
 
-func handleUpdateCallsign(event Event, c *Client) error {
-	requestBody := structs.UpdateCallsignBody{}
-	err := json.Unmarshal([]byte(event.Payload), &requestBody)
+func handleInit(e *Event, socket *gws.Conn, useState bool) {
+	payload := models.InitMsg{}
+	err := json.Unmarshal([]byte(e.Payload), &payload)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
-	if requestBody.Uid == "" && requestBody.NewCallsign != "" {
-		newUid := uuid.NewString()
-		newUser := structs.HuntUser{
-			Uid:      newUid,
-			Callsign: requestBody.NewCallsign,
-			Active:   true,
+	newUid := uuid.NewString()
+
+	responseEvent := &Event{
+		Type:    NewUid,
+		Payload: newUid, 
+		Time: e.Time,
+	}
+	b, err := json.Marshal(responseEvent)
+	if err != nil {
+		log.Fatalln("unable to marshal response", err)
+		socket.NetConn().Close()
+		return
+	}
+	if payload.Uid == "" {
+		newUser := models.HuntUser{
+			Callsign: payload.Callsign,
+			Uid: newUid,
+			Location: models.Location{},
+			Active: true,
 		}
-		err = collections.LocationCollection.AddUser(c.ctx, newUser)
+		connMap.Store(socket, newUser)
+		if useState {
+			addNewUserToState(newUser)
+		} else {
+			addNewUserToDb(newUser)
+		}
+		socket.WriteAsync(gws.OpcodeText, b, func(err error) {
+			if err != nil {
+				socket.NetConn().Close()
+			}
+		})
+	}
+	
+	currentState := models.InitResponse{}
+
+	var users []models.HuntUser
+	if useState {
+		users = getUsersFromState()
+	} else {
+		users = getUsersFromDB()
+	}
+	currentState.Users = users
+	stateToBytes, err := json.Marshal(currentState)
+	if err != nil {
+		log.Fatalf("Unable to marshal state init %e\n", err)
+	}
+	stateEvent := &Event{
+		Type: InitResponse,
+		Payload: string(stateToBytes),
+		Time: e.Time,
+	}
+	eventBytes, err := json.Marshal(stateEvent)
+	if err != nil {
+		log.Fatalf("Unable to marshal state init %e\n", err)
+	}
+	socket.WriteAsync(gws.OpcodeText, eventBytes, func(err error) {
 		if err != nil {
-			return err
+			log.Fatalf("Unable to send state init %e\n", err)
 		}
-		c.writeChan <- Event{
-			Type:    NewUid,
-			Payload: newUid,
+	})
+}
+
+func addNewUserToState(newUser models.HuntUser) {	
+	_, err := huntState.AddClient(newUser.Uid, newUser.Callsign, newUser.Location)
+	if err != nil {
+		log.Fatalln("Unable to add user to state", err)
+	}
+	err = locations.AddLocation(0.0, 0.0, 0.0, newUser.Uid)
+	if err != nil {
+		log.Fatalln("Unable to add user location", err)
+	}
+}
+
+func addNewUserToDb(newUser models.HuntUser) {
+	err := collections.UsersCollectionManager.AddUser(context.Background(), newUser)
+	if err != nil {
+		log.Fatalf("Unable to add user during init %e\n", err)
+	}
+}
+
+func getUsersFromState() []models.HuntUser {
+	allUsers := []models.HuntUser{}
+	for i := range huntState.Uids {
+		if huntState.Free[i] {
+			uid := huntState.Uids[i]
+			huntUser, err := huntState.FindClient(uid)
+			if err != nil {
+				log.Fatalln("Unable to find hunt user", err)
+			}
+			loc, err := locations.GetLocationByUid(uid)
+			if err != nil {
+				log.Fatalln("User location does not exist", err)
+			}
+			huntUser.Location = *loc
+			allUsers = append(allUsers, huntUser)
 		}
-		return nil
 	}
-	if requestBody.NewCallsign == "" {
-		c.writeChan <- Event{
-			Type:    Error,
-			Payload: "Invalid callsign",
-		}
-		return constants.ErrInvalidCallsign
-	}
-	err = collections.LocationCollection.SetCallsign(c.ctx, requestBody.Uid, requestBody.NewCallsign)
-	if err != nil {
-		return err
-	}
-	return nil
+	return allUsers
 }
 
-func handleNewGroup(event Event, c *Client) error {
-	unit := structs.Unit{
-		Name: event.Payload,
-	}
-	err := collections.GroupCollection.InsertUnit(c.ctx, unit)
+func getUsersFromDB() []models.HuntUser {
+	users, err := collections.UsersCollectionManager.FindAll(context.Background())
 	if err != nil {
-		return err
+		log.Fatalln("Unable to get locations", err)
 	}
-	updateEvent := Event{
-		Type:    UnitUpdate,
-		Payload: event.Payload,
-	}
-	err = c.manager.BroadcastMessage(updateEvent)
-	if err != nil {
-		return err
-	}
-	return nil
+	return users
 }
 
-func handleTargetUpdate(event Event, c *Client) error {
-	update := &structs.TargetUpdatePayload{}
-	err := json.Unmarshal([]byte(event.Payload), update)
+func handleLocationUpdate(e *Event, message []byte, useState bool) {
+	update := &models.LocationUpdatePayload{}
+	err := json.Unmarshal([]byte(e.Payload), update)
 	if err != nil {
-		return err
-	}
-	err = collections.LocationCollection.UpdateTarget(c.ctx, update.Uid, update.TargetUid, update.TargetName)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func handleCommandNodeUpdate(event Event, c *Client) error {
-	err := c.manager.BroadcastMessage(event)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func handleLocationUpdate(event Event, c *Client) error {
-	update := structs.HuntUser{}
-	err := json.Unmarshal([]byte(event.Payload), &update)
-	update.Type = "friendly"
-	if err != nil {
-		return err
+		log.Fatalf("Unable to unmarshal location update payload %e\n", err)
 	}
 	if update.Uid == "" {
-		newUid := uuid.NewString()
-		connMap[c.conn] = newUid
-		update.Uid = newUid
-		m := Event{
-			Type:    NewUid,
-			Payload: newUid,
-		}
-		c.writeChan <- m
-		return nil
+		log.Fatalln("unable to find uid", update.Callsign)
 	}
-	update.Active = true
-	err = collections.LocationCollection.UpdateUser(c.ctx, update)
-	if err != nil {
-		return err
-	}
-	err = c.manager.BroadcastMessage(event)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func handleInit(event Event, c *Client) error {
-	incoming := structs.InitMsg{}
-	err := json.Unmarshal([]byte(event.Payload), &incoming)
-	if err != nil {
-		return err
-	}
-	if incoming.Callsign == "" {
-		c.writeChan <- Event{
-			Type:    Error,
-			Payload: "Invalid callsign",
-		}
-	}
-	if incoming.Uid != "" {
-		connMap[c.conn] = incoming.Uid
+	if useState {
+		updateLocationUsingState(update.Location, update.Uid)
 	} else {
-		newUid := uuid.NewString()
-		connMap[c.conn] = newUid
-		c.writeChan <- Event{
-			Type:    NewUid,
-			Payload: newUid,
-		}
+		collections.UsersCollectionManager.UpdateLocation(context.Background(), update.Location, update.Uid)
 	}
-	result, err := collections.CommandNodeCollection.FindAll(c.ctx)
-	if err != nil {
-		return err
-	}
-	nodesToString, err := json.Marshal(result)
-	if err != nil {
-		return err
-	}
-	commandNodes := Event{
-		Type:    CommandNodes,
-		Payload: string(nodesToString),
-	}
-	c.writeChan <- commandNodes
-	huntUsers, err := collections.LocationCollection.FindAllActive(c.ctx)
-	if err != nil {
-		return err
-	}
-	locationsToString, err := json.Marshal(huntUsers)
-	if err != nil {
-		return err
-	}
-	locationMsg := Event{
-		Type:    Locations,
-		Payload: string(locationsToString),
-	}
-	c.writeChan <- locationMsg
-	groups, err := collections.GroupCollection.FindAll(c.ctx)
-	if err != nil {
-		return err
-	}
-	unitsToString, err := json.Marshal(groups)
-	if err != nil {
-		return err
-	}
-	unitMsg := Event{
-		Type:    Units,
-		Payload: string(unitsToString),
-	}
-	c.writeChan <- unitMsg
-	return nil
+	connections := []*gws.Conn{}
+	connMap.Range(func(key *gws.Conn, value models.HuntUser) bool {
+		connections = append(connections, key)
+		return true
+	})
+	Broadcast(connections, gws.OpcodeText, message)
 }
 
-func handleNodeStatusUpdate(event Event, c *Client) error {
-	statusUpdate := structs.NodeStatusUpdate{}
-	err := json.Unmarshal([]byte(event.Payload), &statusUpdate)
+func updateLocationUsingState(update models.Location, uid string) {
+	err := locations.UpdateLocation(update.Lat, update.Lon, update.Alt, uid)
 	if err != nil {
-		return err
+		log.Fatalln("Unable to update client's location", err)
 	}
-	err = collections.CommandNodeCollection.SetStatus(c.ctx, statusUpdate.Uid, statusUpdate.Status)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func handleNewCommandNode(event Event, c *Client) error {
-	ditHost := os.Getenv("DIT_HOST")
-	ditPort := os.Getenv("DIT_CLUSTER_PORT")
-	hostPort := net.JoinHostPort(ditHost, ditPort)
-	reqUrl := fmt.Sprintf("http://%s/v1/createObject", hostPort)
-	liveNode := structs.LiveNode{}
-	err := json.Unmarshal([]byte(event.Payload), &liveNode)
-	if err != nil {
-		return err
-	}
-	b, err := json.Marshal(liveNode)
-	headers := map[string]string{
-		"Content-Type": "application/json",
-	}
-	resp, err := utils.SendApiRequest(c.ctx, http.MethodPut, reqUrl, bytes.NewBuffer(b), headers)
-	if err != nil {
-		return err
-	}
-	resBody := utils.Response{}
-	err = json.Unmarshal(resp, &resBody)
-	if err != nil {
-		return err
-	}
-	if resBody.Status == "Success" {
-		msg := Event{
-			Type:    NewCommandNode,
-			Payload: "Success",
-		}
-		c.writeChan <- msg
-	} else {
-		msg := Event{
-			Type:    Error,
-			Payload: "Invalid command",
-		}
-		c.writeChan <- msg
-	}
-	return nil
 }

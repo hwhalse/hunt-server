@@ -6,10 +6,10 @@ import (
 	"os"
 )
 
-var HuntArtakClient = NewMongoClient("artak")
+var HuntArtakClient = NewMongoClient("hunt")
 
 func NewMongoClient(database string) *Client {
-	client, err := NewClient(os.Getenv("MONGO_CONNECTION_STR"), database)
+	client, err := NewClient(os.Getenv("MONGO_URI"), database)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,26 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: dev.Dockerfile
+    container_name: go_server
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/mydb
+    depends_on:
+      - mongo
+    restart: always
+
+  mongo:
+    image: mongo:7.0
+    container_name: mongo_db
+    command: mongod --quiet
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: always
+
+volumes:
+  mongo_data:

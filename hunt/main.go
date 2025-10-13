@@ -1,40 +1,36 @@
 package main
 
 import (
-	"context"
-	"github.com/rs/cors"
-	"hunt/handlers"
 	"hunt/logging"
-	"hunt/metrics"
-	"hunt/socket"
+	huntSocket "hunt/socket"
 	"net/http"
-	"os"
+	"github.com/lxzan/gws"
 )
 
 func main() {
-	port := os.Getenv("PORT")
+	port := "8080"
 	mux := http.NewServeMux()
-	ctx := context.Background()
-	manager := socket.NewManager(ctx)
+	upgrader := gws.NewUpgrader(huntSocket.NewHandler(), &gws.ServerOption{
+		ParallelEnabled:  true,                               
+		Recovery:          gws.Recovery,                    
+		PermessageDeflate: gws.PermessageDeflate{Enabled: true},
+	})
+	mux.HandleFunc("/connect", func(writer http.ResponseWriter, request *http.Request) {
+		socket, err := upgrader.Upgrade(writer, request)
+		if err != nil {
+			return
+		}
+		go func() {
+			socket.ReadLoop()
+		}()
+	})
+	fs := http.FileServer(http.Dir("./static"))
+	mux.Handle("/", fs)
 	logger := logging.NewLogger()
-	logger.Info().Msg("Hunt listening on port: " + port)
-	wss := http.HandlerFunc(manager.Start)
-	mux.Handle("/ws", wss)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleTestPing(w, r, logger)
-	})
-	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
-		metrics.HandleSendingMetrics(w, r, logger)
-	})
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "Access-Control-Allow-Origin"},
-		AllowCredentials: true,
-	})
-	err := http.ListenAndServe(":"+port, c.Handler(metrics.PerformanceLoggingMiddleware(mux, logger)))
+	err := http.ListenAndServe(":"+port, mux)
 	if err != nil {
 		panic(err)
 	}
+	logger.Info().Msgf("HUNT HTTP server listening on port %s", port)
 }

@@ -1,14 +1,29 @@
-ARG GO_VERSION
-FROM golang:${GO_VERSION} AS development
+FROM golang:latest AS development
 
 ENV PATH="/go/bin:$PATH"
 
 WORKDIR /app
 
-COPY services/hunt/go.mod services/hunt/go.sum services/hunt/.air.toml ./
+COPY go.mod go.sum ./
+RUN go mod download
 
-RUN go install github.com/air-verse/air@latest && go mod download
+COPY . .
 
-COPY services/hunt .
+RUN GOOS=linux GOARCH=amd64 go build -o server .
 
-CMD ["air", "-c", ".air.toml"]
+# Final minimal image
+FROM alpine:latest
+WORKDIR /app
+
+# Copy the built binary from the builder stage
+COPY --from=development /app/server .
+COPY static ./static
+
+# Expose the app port
+EXPOSE 8080
+
+# Environment variable for Mongo connection
+ENV MONGO_URI=mongodb://mongo:27017/mydb
+
+# Start the server
+CMD ["./server"]

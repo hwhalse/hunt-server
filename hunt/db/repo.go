@@ -29,12 +29,14 @@ func NewRepository[T any](client *Client, collectionName string, indexes []mongo
 }
 
 func (repo *Repository[T]) FindAll(ctx context.Context) ([]T, error) {
-	cursor, err := repo.collection.Find(ctx, bson.M{})
+	c := context.Background()
+	cursor, err := repo.collection.Find(c, bson.M{})
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(c)
 	var results []T
-	if err = cursor.All(ctx, &results); err != nil {
+	if err = cursor.All(c, &results); err != nil {
 		return nil, err
 	}
 	return results, nil
@@ -84,6 +86,11 @@ func (repo *Repository[T]) DeleteMany(ctx context.Context, filter bson.M) error 
 		return constants.ErrNoDocsDeleted
 	}
 	return nil
+}
+
+func (repo *Repository[T]) DeleteAll(ctx context.Context) error {
+	_, err := repo.collection.DeleteMany(ctx, bson.D{})
+	return err
 }
 
 func (repo *Repository[T]) FindOneAndDelete(ctx context.Context, filter bson.M) error {
