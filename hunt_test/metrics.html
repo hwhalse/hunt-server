@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Performance</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50 font-sans text-center min-h-screen flex flex-col items-center py-10">
+    <h2 class="text-3xl font-semibold text-gray-800 mb-8">
+      WebSocket Client Performance
+    </h2>
+
+    <div class="w-full max-w-5xl space-y-8">
+      <div class="bg-white shadow rounded-2xl p-4">
+        <canvas id="latencyChart" class="w-full h-72"></canvas>
+      </div>
+
+      <div class="bg-white shadow rounded-2xl p-4">
+        <canvas id="rateChart" class="w-full h-72"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+      const rateCtx = document.getElementById('rateChart').getContext('2d');
+
+      const latencyChart = new Chart(latencyCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Latency (ms)',
+              borderColor: '#3b82f6', 
+              data: [],
+              fill: false,
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          animation: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'ms' },
+            },
+            x: { display: false },
+          },
+        },
+      });
+
+      const rateChart = new Chart(rateCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Messages/sec',
+              borderColor: '#22c55e', 
+              data: [],
+              fill: false,
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          animation: false,
+          scales: {
+            y: { beginAtZero: true },
+            x: { display: false },
+          },
+        },
+      });
+
+      async function updateCharts() {
+        const res = await fetch('/stats');
+        const data = await res.json();
+
+        const labels = data.map((d) =>
+          new Date(d.Timestamp).toLocaleTimeString()
+        );
+        const latencies = data.map((d) => d.LatencyMs);
+        const messages = data.map((d) => d.MessagesSec);
+
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = latencies;
+        latencyChart.update();
+
+        rateChart.data.labels = labels;
+        rateChart.data.datasets[0].data = messages;
+        rateChart.update();
+      }
+
+      setInterval(updateCharts, 1000);
+    </script>
+  </body>
+</html>

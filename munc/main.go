@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 )
 
 //func printMemoryUsage() {
@@ -21,7 +20,6 @@ import (
 //}
 
 func main() {
-	logger := newLogger()
 	http.HandleFunc("/", homeHandler)
 	err := http.ListenAndServe(":6666", nil)
 	if err != nil {
