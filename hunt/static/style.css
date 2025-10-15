@@ -1,8 +1,0 @@
-html, body { height: 100%; margin: 0; font-family: sans-serif; }
-#app { display: flex; flex-direction: column; height: 100%; }
-header { padding: 8px; background: #0b5; color: #003; display: flex; gap: 12px; align-items: center; }
-#controls { display: flex; gap: 8px; align-items: center; }
-#map { flex: 1; }
-#log { height: 160px; overflow: auto; padding: 8px; background: #111; color: #eee; font-family: monospace; }
-input, button { padding: 6px; border-radius: 6px; border: 1px solid #ccc; }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; }
